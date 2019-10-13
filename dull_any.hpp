@@ -51,10 +51,6 @@ public:
     {
         base_ptr = new value<T>(tmp);
     }
-    any(const any &tmp)
-    {
-        base_ptr = tmp.get_base_ptr()->copy();
-    }
     value_base *get_base_ptr() const
     {
         return base_ptr;
