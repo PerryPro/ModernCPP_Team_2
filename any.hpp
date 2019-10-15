@@ -1,152 +1,174 @@
 #pragma once
 
 #include <iostream>
-#include <typeinfo>
 #include <string>
+#include <typeinfo>
 
-class bad_any_cast final : public std::bad_cast{
+class bad_any_cast final: public std::bad_cast{
 
-public:
-
-    virtual const char *what() const noexcept{
-
-            return "bad any_cast";
-
+    public:
+    virtual const char *what() const noexcept override
+    {
+        return "bad any_cast";
     }
-
 };
-
-class value_handler{
-
-public:
-
-    value_handler() = default;
-
-    virtual ~value_handler(){};
-
-    virtual const std::type_info &type() const noexcept = 0;
-
-    virtual value_handler *copy() const = 0;//复制函数
-
-};
-
-
-template<typename T>
-class handler : public value_handler{
-
-public:
-
-    T data;
-
-    handler(const T &t): data(t) {};
-
-    virtual const std::type_info &type() const noexcept override{
-
-        return typeid(T);
-
-    }
-
-    //复制函数
-    virtual value_handler *copy() const override{
-
-        return new handler(data);
-
-    }//0
-    
-};
-
 
 class any final{
-
-private:
-
-    value_handler *dataPtr;
+    private:
 
     template<typename T>
-    friend T make_any(T &v);
+    friend const T &any_cast(const any &);
 
     template<typename T>
-    friend T &any_cast(const any &a);
-
-public:
-
-    any() = default;
+    friend T &any_cast(any &);
 
     template<typename T>
-    any(const T &v): dataPtr(new handler<T>(v)){};
+    friend T *const any_cast(const any *);
 
-    any &operator=(const any &a){
+    template<typename T>
+    friend T *any_cast(any *);
 
-        this->dataPtr = a.dataPtr;
+    class value_base{
+        public:
 
+        value_base() = default;
+
+        value_base(const value_base &) = delete;
+
+        virtual ~value_base() = default;
+
+        virtual value_base *copy() = 0;
+
+        virtual const std::type_info &type() const noexcept = 0;
+    };
+
+    template<typename T>
+    class value_holder : public value_base{
+
+        friend class any;
+
+        template<typename X>
+        friend const X &any_cast(const any&);
+
+        template<typename X>
+        friend X &any_cast(any &);
+
+        template<typename X>
+        friend X *const any_cast(const any *);
+
+        template<typename X>
+        friend X *any_cast(any *);
+
+        T data;
+
+        public:
+
+        value_holder() = delete;
+
+        value_holder(T t): data(t){};
+
+        virtual ~value_holder() = default;
+
+        virtual value_base *copy() override
+        {
+            return new value_holder(data);
+        }
+
+        virtual const std::type_info &type() const noexcept override
+        {
+            return typeid(T);
+        }
+    };
+
+    value_base *data = nullptr;
+
+    public:
+
+    constexpr any() = default;
+
+    template<typename T>
+    any(const T &val): data(new value_holder<T>(val)){}; //
+
+    ~any()
+    {
+        delete data;
+    }
+
+    any(const any &v): data(v.data == nullptr? nullptr: v.data->copy()){};
+
+    any &operator= (const any &v)
+    {
+        if(&v != this)
+        {
+            delete data;
+            data = nullptr;
+            this->data = (v.data == nullptr ? nullptr : v.data->copy());
+        }
         return *this;
-
     }
 
-    template<typename T>
-    any &operator=(T&& t){
-
-        value_handler* dataPtr2 = new handler<T>(t);
-
-        std::swap(dataPtr,dataPtr2);
-
-        return *this;
-
-    }
-    
-
-    void reset(){
-
-        if(dataPtr != nullptr)
-        delete dataPtr;
-
-        dataPtr = nullptr;
-
+    const std::type_info &type() const noexcept
+    {
+        return (data == nullptr ? typeid(void) : data->type());
     }
 
-    any &swap(any &a){
-
-        std::swap(dataPtr,a.dataPtr);
-
-        return *this;
-
+    void swap(any &v)
+    {
+        std::swap(data, v.data);
     }
 
-    bool has_value(){
-
-        return dataPtr != nullptr;
-        
+    void reset()
+    {
+        delete data;
+        data = nullptr;
     }
 
-
-    const std::type_info &type() const noexcept{
-
-        return dataPtr != nullptr ? dataPtr->type() : typeid(void);
-
-    }
-
-    ~any(){
-
-        reset();
-
+    bool has_value()
+    {
+        return data != nullptr;
     }
 
 };
 
-template<typename T>
-T make_any(T &v){
-
-    return any(v);
-
+void swap(any &a, any &b)
+{
+    a.swap(b);
 }
 
 template<typename T>
-T &any_cast(const any&a){
-
-    if (a.type() != typeid(T))
-
+const T &any_cast(const any &v)
+{
+    if(typeid(T) != v.type())
         throw bad_any_cast();
-
-    return dynamic_cast<handler<T>*>(a.dataPtr)->data;
-
+    return dynamic_cast<any::value_holder<T> *>(v.data)->data;
 }
+
+template<typename T>
+T &any_cast(any &v)
+{
+    if(typeid(T) != v.type())
+        throw bad_any_cast();
+    return dynamic_cast<any::value_holder<T> *>(v.data)->data;
+}
+
+template<typename T>
+T *const any_cast(const any *v)
+{
+    if(v == nullptr)
+        return nullptr;
+    if(typeid(T) != v->type())
+        throw bad_any_cast();
+    return &dynamic_cast<any::value_holder<T> *>(v->data)->data;
+}
+
+template<typename T>
+T *any_cast(any *v)
+{
+    if(v == nullptr)
+        return nullptr;
+    if(typeid(T) != v->type())
+        throw bad_any_cast();
+    return &dynamic_cast<any::value_holder<T> *>(v->data)->data;    
+}
+
+
