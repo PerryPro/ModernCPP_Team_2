@@ -15,7 +15,8 @@ class shared_ptr final{
 
         T *ptr = nullptr;
 
-        unsigned long count = 0;
+        mutable unsigned long count;
+        
     };    
 
     // template<typename T, class... Args>
@@ -24,26 +25,7 @@ class shared_ptr final{
 
     store *data = nullptr;
 
-    public:
-
-    constexpr shared_ptr() noexcept = default;
-
-    explicit shared_ptr(T *Ptr): data(new store) // 不能隐式转换
-    {
-        data->ptr = Ptr;
-        data->count++;
-    }
-
-    shared_ptr(const shared_ptr &sh_ptr)
-    {
-        if(sh_ptr.data != nullptr)
-        {
-            data = sh_ptr.data;
-            data->count++;
-        }        
-    }
-
-    ~shared_ptr()
+    void del_count() const
     {
         if(data != nullptr)
         {
@@ -53,6 +35,35 @@ class shared_ptr final{
                 delete data;
             }
         }
+    }
+
+    void add_count() const
+    {
+        data->count++;
+    }
+
+    public:
+
+    constexpr shared_ptr() noexcept = default;
+
+    explicit shared_ptr(T *Ptr): data(new store) // 不能隐式转换
+    {
+        data->ptr = Ptr;
+        data->count = 1;
+    }
+
+    shared_ptr(const shared_ptr &sh_ptr)
+    {
+        if(sh_ptr.data != nullptr)
+        {
+            data = sh_ptr.data;
+            this->add_count();
+        }        
+    }
+
+    ~shared_ptr()
+    {
+        this->del_count();
     }
 
     shared_ptr swap(shared_ptr &sh_ptr)
@@ -65,20 +76,13 @@ class shared_ptr final{
     {
         if(this != &sh_ptr)
         {
-            if(data != nullptr)
-            {
-                if(--data->count == 0)
-                {
-                    delete data->ptr;
-                    delete data;
-                }
-            }
+            this->del_count();
             if(sh_ptr.data == nullptr)
                 data = nullptr;
             else
             {
                 data = sh_ptr.data;
-                data->count++;
+                this->add_count();
             }
         }
         return *this;
@@ -86,14 +90,7 @@ class shared_ptr final{
     
     void reset() noexcept
     {
-        if(data != nullptr)
-        {
-            if(--data->count == 0)
-            {
-                delete data->ptr;
-                delete data;
-            }
-        }
+        this->del_count();
         shared_ptr().swap(*this);
     }
 
