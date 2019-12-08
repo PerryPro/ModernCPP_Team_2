@@ -1,0 +1,1124 @@
+#pragma once
+
+#include <memory>
+#include <limits>
+#include <initializer_list>
+
+template<typename T>
+void by_bit_copy(T *src, T *des, std::size_t count)
+{
+    if(count > 0)
+    {
+        using byte_t = unsigned char;
+        byte_t *source = reinterpret_cast<byte_t *>(src);
+        byte_t *destination = reinterpret_cast<byte_t *>(des);
+        std::size_t size = count * sizeof(T);
+        for(std::size_t index = 0; index < size; index++)
+        {
+            *(destination + index) = *(source + index);
+        }
+    }
+}
+
+template<typename T>
+void by_type_copy(T *src, T *des, std::size_t count)//先暂时不用
+{
+    if(count > 0)
+    {
+        std::size_t size = count;
+        for(std::size_t index = 0; index < size; index++)
+        {
+            new(des+index) T(*(src+index));
+        }
+    }
+}
+
+template<typename T>
+void deAllocate(T *src, std::size_t count, std::size_t length, std::allocator<T> _allocator) 
+{
+    if(src != nullptr)
+    {
+        for(size_t index = 0; index < count; index++)
+        {
+            (src+index)->~T();
+        }
+    _allocator.deallocate(src, length);
+    }
+}
+
+template<typename T, typename Allocator = std::allocator<T> >
+class myVector final{
+
+    using size_t = std::size_t;
+
+private:
+
+   class const_iterator final{
+
+    public:
+
+    friend class myVector<T>;
+
+    friend class myVector<T>::iterator;
+
+    private:
+
+        T *_ptr = nullptr;
+    
+    public:
+        
+        const_iterator() = default;
+
+        const_iterator(T *ptr): _ptr(ptr){};
+
+        const_iterator(const const_iterator &iter): _ptr(iter._ptr) {};
+
+        const_iterator(const typename myVector<T>::iterator &iter): _ptr(iter._ptr) {};
+
+        const_iterator(typename myVector<T>::iterator &&iter)
+        {
+            std::swap(_ptr, iter._ptr);
+        }
+
+        const_iterator(const_iterator &&iter)
+        {
+            std::swap(_ptr, iter._ptr);
+        }
+
+        ~const_iterator(){};
+
+        const_iterator &operator=(const const_iterator &iter)
+        {
+            this->_ptr = iter._ptr;
+            return *this;
+        }
+
+        const_iterator &operator=(const_iterator &&iter)
+        {
+            std::swap(this->_ptr, iter._ptr);
+            return *this;
+        }
+
+        const_iterator &operator=(const typename myVector<T>::iterator &iter)
+        {
+            this->_ptr = iter._ptr;
+            return *this;
+        }
+
+        const_iterator &operator=(typename myVector<T>::iterator &&iter)
+        {
+            std::swap(this->_ptr, iter._ptr);
+            return *this;   
+        }
+
+        const_iterator &operator++()
+        {
+            this->_ptr++;
+            return *this;
+        }
+
+        const_iterator operator++(int)
+        {
+            const_iterator _tmp = *this;
+            _ptr++;
+            return _tmp;
+        }
+
+        const_iterator &operator--()
+        {
+            this->_ptr--;
+            return *this;
+        }
+
+        const_iterator operator--(int)
+        {
+            const_iterator _tmp = *this;
+            _ptr--;
+            return _tmp;
+        }
+
+        const_iterator operator+(long long int len)
+        {
+            const_iterator _tmp(_ptr+len);
+            return _tmp;
+        }
+
+        const_iterator operator-(long long int len)
+        {
+            const_iterator _tmp(_ptr-len);
+            return _tmp;
+        }
+
+        long long int operator-(const const_iterator &iter)
+        {
+            return (this->_ptr - iter._ptr);
+        }
+
+        long long int operator-(const typename myVector<T>::iterator &iter)
+        {
+            return (this->_ptr - iter._ptr);
+        }
+
+        const_iterator &operator+=(long long int len)
+        {
+            _ptr += len;
+            return *this;
+        }
+
+        const_iterator &operator-=(long long int len)
+        {
+            _ptr -= len;
+            return *this;
+        }
+
+        const T &operator*() const
+        {
+            return *_ptr;
+        }
+
+        const T *operator->() const
+        {
+            return _ptr;
+        }
+
+        const T &operator[](long long int len) const
+        {
+            return *(_ptr + len);
+        }
+
+        bool operator==(const const_iterator &iter)
+        {
+            return (_ptr == iter._ptr);
+        }
+
+        bool operator!=(const const_iterator &iter)
+        {
+            return !(*this == iter);
+        }
+
+        bool operator>(const const_iterator &iter)
+        {
+            return (_ptr > iter._ptr);
+        }
+
+        bool operator<(const const_iterator &iter)
+        {
+            return (_ptr < iter._ptr);
+        }
+
+        bool operator<=(const const_iterator &iter)
+        {
+            return !(*this > iter);
+        }
+
+        bool operator>=(const const_iterator &iter)
+        {
+            return !(*this < iter);
+        }
+
+        bool operator==(const typename myVector<T>::iterator &iter)
+        {
+            return (_ptr == iter._ptr);
+        }
+
+        bool operator!=(const typename myVector<T>::iterator &iter)
+        {
+            return !(*this == iter);
+        }
+
+        bool operator>(const typename myVector<T>::iterator &iter)
+        {
+            return (_ptr > iter._ptr);
+        }
+
+        bool operator<(const typename myVector<T>::iterator &iter)
+        {
+            return (_ptr < iter._ptr);
+        }
+
+        bool operator<=(const typename myVector<T>::iterator &iter)
+        {
+            return !(*this > iter);
+        }
+
+        bool operator>=(const typename myVector<T>::iterator &iter)
+        {
+            return !(*this < iter);
+        }
+    };
+
+    class iterator final{
+
+    public:
+
+    friend class myVector<T>;
+    friend class myVector<T>::const_iterator;
+
+    private:
+
+        T *_ptr = nullptr;
+    
+    public:
+        
+        iterator() = default;
+
+        iterator(T *ptr): _ptr(ptr){};
+
+        iterator(const iterator &iter): _ptr(iter._ptr) {};
+
+        iterator(iterator &&iter)
+        {
+            std::swap(_ptr, iter._ptr);
+        }
+
+        ~iterator(){};
+        
+        iterator &operator=(const const_iterator &iter)
+        {
+            this->_ptr = iter._ptr;
+            return *this;
+        }
+
+        iterator &operator=(const_iterator &&iter)
+        {
+            std::swap(this->_ptr, iter._ptr);
+            return *this;
+        }
+
+        iterator &operator=(iterator &iter)
+        {
+            this->_ptr = iter._ptr;
+            return *this;
+        }
+
+        iterator &operator=(iterator &&iter)
+        {
+            std::swap(this->_ptr, iter._ptr);
+            return *this;   
+        }
+
+        iterator &operator++()
+        {
+            this->_ptr++;
+            return *this;
+        }
+
+        iterator operator++(int)
+        {
+            iterator _tmp = *this;
+            _ptr++;
+            return _tmp;
+        }
+
+        iterator &operator--()
+        {
+            this->_ptr--;
+            return *this;
+        }
+
+        iterator operator--(int)
+        {
+            iterator _tmp = *this;
+            _ptr--;
+            return _tmp;
+        }
+
+        iterator operator+(long long int len)
+        {
+            iterator _tmp(_ptr+len);
+            return _tmp;
+        }
+
+        iterator operator-(long long int len)
+        {
+            iterator _tmp(_ptr-len);
+            return _tmp;
+        }
+
+        long long int operator-(const const_iterator &iter)
+        {
+            return (this->_ptr - iter._ptr);
+        }
+
+        long long int operator-(const iterator &iter)
+        {
+            return (this->_ptr - iter._ptr);
+        }
+
+        iterator operator+=(long long int len)
+        {
+            _ptr += len;
+            return *this;
+        }
+
+        iterator operator-=(long long int len)
+        {
+            _ptr -= len;
+            return *this;
+        }
+
+        T &operator*()
+        {
+            return *_ptr;
+        }
+
+        const T &operator*() const
+        {
+            return *_ptr;
+        }
+
+        T *operator->()
+        {
+            return _ptr;
+        }
+
+        const T *operator->() const
+        {
+            return _ptr;
+        }
+
+        T &operator[](long long int len)
+        {
+            return *(_ptr + len);
+        }
+
+        const T &operator[](long long int len) const
+        {
+            return *(_ptr + len);
+        }
+
+        bool operator==(const const_iterator &iter)
+        {
+            return (_ptr == iter._ptr);
+        }
+
+        bool operator!=(const const_iterator &iter)
+        {
+            return !(*this == iter);
+        }
+
+        bool operator>(const const_iterator &iter)
+        {
+            return (_ptr > iter._ptr);
+        }
+
+        bool operator<(const const_iterator &iter)
+        {
+            return (_ptr < iter._ptr);
+        }
+
+        bool operator<=(const const_iterator &iter)
+        {
+            return !(*this > iter);
+        }
+
+        bool operator>=(const const_iterator &iter)
+        {
+            return !(*this < iter);
+        }
+
+        bool operator==(const iterator &iter)
+        {
+            return (_ptr == iter._ptr);
+        }
+
+        bool operator!=(const iterator &iter)
+        {
+            return !(*this == iter);
+        }
+
+        bool operator>(const iterator &iter)
+        {
+            return (_ptr > iter._ptr);
+        }
+
+        bool operator<(const iterator &iter)
+        {
+            return (_ptr < iter._ptr);
+        }
+
+        bool operator<=(const iterator &iter)
+        {
+            return !(*this > iter);
+        }
+
+        bool operator>=(const iterator &iter)
+        {
+            return !(*this < iter);
+        }
+    };
+    
+    void extend()
+    {
+        this->reverse(this->m_capacity == 0 ? 1 : (2 * m_capacity));
+    }
+
+    void clean()
+    {
+        for(size_t index = 0; index < m_size; index++)
+        {
+            (m_data + index)->~T();
+        }
+        m_allocator.deallocate(m_data, m_capacity);
+        m_capacity = 0;
+        m_size = 0;
+        m_data = nullptr;
+    }
+
+    void assign_aux(size_t count, const T& value, std::true_type)
+    {
+        clean();
+        m_data = get_allocator().allocate(count);
+        m_size = count;
+        m_capacity = count;
+        for(size_t index = 0; index < count; index++)
+        {
+            ::new(m_data + index) T(value);
+        }
+    }
+
+    template<typename InputIt>
+    void assign_aux(InputIt first, InputIt last, std::false_type)
+    {
+        clean();
+        size_t count = last - first;
+        m_data = get_allocator().allocate(count);
+        m_size = count;
+        m_capacity = count;
+        InputIt iter = first;
+        for(size_t index = 0; index < count; index++)
+        {
+            ::new(m_data + index) T(*iter);
+            iter++;
+        }
+    }
+
+    iterator insert_aux(const_iterator pos, size_t count, const T &value, std::true_type)
+    {
+        if(count == 0)
+            return iterator(pos - begin() + m_data);
+        size_t distance = pos - begin();
+        while(capacity() < size() + count)
+            extend();
+        pos = begin() + distance;
+        const size_t after_num = end() - pos;
+        const size_t by_bit_start = size() - count;    
+        if(after_num > count)
+        {
+            by_bit_copy(m_data + by_bit_start, m_data + size(), count);
+            for(size_t index = after_num - count; index > 0; index--)
+            {
+                *(m_data + size() - after_num + index - 1 + count) = *(m_data + size() - after_num + index - 1);
+            }
+            for(size_t index = 0; index < count; index++)
+            {
+                *(m_data + size() - after_num + index) = value;
+            }
+            m_size += count;
+            return iterator(m_data + distance);
+        } 
+        else
+        {
+            for(size_t index = 0; index < count - after_num; index++)
+            {
+                ::new(m_data + size() + index) T(value); 
+            }
+            by_bit_copy(m_data + m_size - after_num, m_data + m_size - after_num + count, after_num);//
+            for(size_t index = 0; index < after_num; index++)
+            {
+                *(m_data + size() - after_num) = value;
+            }
+            m_size += count;
+            return iterator(m_data + distance);
+        }  
+    }
+
+    template<typename InputIt>
+    iterator insert_aux(const_iterator pos, InputIt first, InputIt last, std::false_type)
+    {
+        if(first == last)
+            return iterator(pos - begin() + m_data);
+        if(first > last)
+            throw std::logic_error("Wrong Iterator!");
+        else
+        {
+            size_t distance = pos - begin();
+            size_t count = last - first;
+            while(capacity() < size() + count)
+                extend();
+            pos = begin() + distance;
+            const size_t after_num = end() - pos;
+            auto iter = first;
+            
+            if(after_num > count)
+            {        
+                const size_t by_bit_start = size() - count;
+                by_bit_copy(m_data + by_bit_start, m_data + size(), count);
+                for(size_t index = after_num - count; index > 0; index--)
+                {
+                    *(m_data + size() - after_num + index - 1 + count) = *(m_data + size() - after_num + index - 1);
+                }
+                for(size_t index = 0; index < count; index++)
+                {
+                    *(m_data + size() - after_num + index) = *iter;
+                    iter++;
+                }
+                m_size += count;
+                return iterator(m_data + distance);
+            } 
+            else
+            {          
+                iter += after_num;
+                for(size_t index = 0; index < count - after_num; index++)
+                {
+                    ::new(m_data + size() + index) T(*iter); 
+                    iter++;
+                }
+                by_bit_copy(m_data + m_size - after_num, m_data + m_size - after_num + count, after_num);//保留
+                iter = first;
+                for(size_t index = 0; index < after_num; index++)
+                {
+                    *(m_data + size() - after_num + index) = *iter;
+                    iter++;
+                }
+                m_size += count;            
+                return iterator(m_data + distance);
+            }
+        }
+    }
+
+    Allocator m_allocator;//空间分配器
+    size_t m_capacity = 0, m_size = 0;//size储存元素数,capacity储存分配空间容量
+    T *m_data = nullptr;//指向第一个元素
+
+public:
+
+    //构造/析构函数
+    constexpr myVector() = default;
+
+    explicit myVector(const Allocator &alloc)
+    {
+        m_allocator = alloc;
+    }
+
+    explicit myVector(size_t count, const T value, const Allocator &alloc = Allocator())
+    {
+        m_allocator = alloc;
+        assign(count, value);
+    }
+
+    explicit myVector(size_t count)
+    {
+        m_data = m_allocator.allocate(count);
+        m_size = 0;
+        m_capacity = count;
+    }
+
+    template<typename InputIt>
+    myVector(InputIt first, InputIt last, const Allocator &alloc = Allocator())
+    {
+        m_allocator = alloc;
+        assign(first, last);
+    }
+
+    myVector(const myVector &other): m_allocator(other.m_allocator), m_size(other.m_size), 
+                                     m_capacity(m_size), m_data(m_allocator.allocate(m_capacity))
+    {
+        by_byte_copy(other.m_data, this->m_data, this->m_size);
+    }
+
+    myVector(const myVector &other, const Allocator &alloc): m_allocator(alloc), m_size(other.m_size), 
+                                     m_capacity(m_size), m_data(m_allocator.allocate(m_capacity))
+    {
+        by_byte_copy(other.m_data, this->m_data, this->m_size);
+    }
+
+    
+    myVector(const &&other) //移动语义
+    {
+        this->swap(other);
+    }
+
+    myVector(const &&other, const Allocator &alloc) //移动语义
+    {
+        m_allocator = alloc;
+        this->swap(other);
+    }  
+
+    myVector(std::initializer_list<T> init, const Allocator &alloc = Allocator())
+    {
+        m_allocator = alloc;
+        assign(init);
+    }
+
+    ~myVector()
+    {
+        clean();
+    }
+
+    myVector &operator=(const myVector &other)
+    {
+        if(this != &other)
+        {
+            if(this->m_data != nullptr)
+                clean();
+            m_data = m_allocator.allocate(other.m_size);
+            m_size = other.m_size;
+            m_capacity = other.m_size;
+            by_byte_copy(other.m_data, this->m_data, this->m_size);
+        }
+        return *this;
+    }
+
+    myVector &operator=(myVector&& other) 
+    {
+        this->swap(other);
+        return *this;
+    }
+
+    myVector &operator=(std::initializer_list<T> i_list)
+    {
+        assign(i_list);
+        return *this;
+    }
+
+
+    template<typename InputIt>
+    void assign(InputIt first, InputIt last) //迭代器
+    {
+        typedef std::integral_constant<bool, std::is_integral<InputIt>::value> type;
+        assign_aux(first, last, type());
+    }
+
+
+    void assign(size_t count, const T &value)
+    {
+        assign_aux(count, value, std::true_type());
+    }
+
+    void assign(std::initializer_list<T> i_list) //
+    {
+        m_data = m_allocator.allocate(i_list.size());
+        m_size = i_list.size();
+        m_capacity = i_list.size();
+        size_t index = 0;
+        for(auto iter = i_list.begin(); iter != i_list.end(); iter++)
+        {
+            ::new(m_data + index) T(*iter);
+            index++;
+        }
+    }
+
+    void assign(const myVector<T> &other)
+    {
+        *this = other;
+    }
+
+    void assign(myVector<T> &&other)
+    {
+        std::swap(this->m_capacity, other.m_capacity);
+        std::swap(this->m_data, other.m_data);
+        std::swap(this->m_size, other.m_size);
+    }
+
+    Allocator get_allocator() const
+    {
+        return m_allocator;
+    }
+
+
+    //访问元素
+    T &at(size_t pos) //进行边界检查
+    {
+        if(!(pos < size()))
+            throw std::out_of_range("Out Of Range");
+        else
+            return *(m_data + pos);
+    }
+
+    const T &at(size_t pos) const
+    {
+        if(!(pos < size()))
+            throw std::out_of_range("Out Of Range");
+        else
+            return *(m_data + pos);
+    }
+
+    T &operator[](size_t pos) //不进行边界检查
+    {
+        return *(m_data + pos);
+    }
+
+    const T &operator[](size_t pos) const
+    {
+        return *(m_data + pos);
+    }
+
+    T &front() //返回第一个元素的引用
+    {
+        return *m_data;
+    }
+    
+    const T &front() const
+    {
+        return *m_data;
+    }
+
+    T &back()  //返回最后一个元素的引用
+    {
+        return *(m_data + m_size - 1);
+    }
+
+    const T &back() const
+    {
+        return *(m_data + m_size - 1);
+    }
+
+    T* data() noexcept
+    {
+        return m_data;
+    }
+
+    const T* data() const noexcept
+    {
+        return m_data;
+    }
+
+
+    //迭代器的相关操作
+    iterator begin() noexcept
+    {
+        return iterator(m_data);
+    }
+
+    const_iterator begin() const noexcept
+    {
+        return const_iterator(m_data);
+    }
+
+    const_iterator cbegin() const noexcept
+    {
+        return const_iterator(m_data);
+    }
+
+    iterator end() noexcept
+    {
+        return iterator(m_data + m_size);
+    }
+
+    const_iterator end() const noexcept
+    {
+        return const_iterator(m_data + m_size);
+    }
+
+    const_iterator cend() const noexcept
+    {
+        return const_iterator(m_data + m_size);
+    }
+/*
+    reverse_iterator rbegin() noexcept
+    {
+        ;
+    }
+
+    const_reverse_iterator rbegin() const noexcept
+    {
+        ;
+    }
+
+    const_reverse_iterator crbegin() const noexcept
+    {
+        ;
+    }
+
+    reverse_iterator rend() noexcept
+    {
+        ;
+    }
+
+    const_reverse_iterator rend() const noexcept
+    {
+        ;
+    }
+
+    const_reverse_iterator crend() const noexcept
+    {
+        ;
+    }
+
+    
+    */
+
+
+    //容量操作
+    bool empty() const noexcept
+    {
+        return (this->m_size == 0);
+    }
+
+    size_t size() const noexcept
+    {
+        return this->m_size;
+    } 
+
+    size_t max_size() const noexcept
+    {
+        return std::numeric_limits<T>::max();
+        
+    }
+
+    void reverse(size_t new_cap) //抛异常
+    {
+        if(new_cap > this->max_size())
+            throw std::length_error("beyond max size");
+        else if(new_cap > this->m_capacity)
+        {
+            size_t cap = new_cap;
+            T *dat = this->m_allocator.allocate(cap);
+            by_bit_copy(this->m_data, dat, this->m_size);  
+            deAllocate(m_data, m_size, m_capacity, m_allocator);
+            this->m_data = dat;
+            this->m_capacity = cap;
+        }
+    }
+
+    size_t capacity() const noexcept
+    {
+        return this->m_capacity;
+    }
+
+    void shrink_to_fit()
+    {
+        if(m_capacity > m_size)
+        {
+            size_t new_cap = this->m_size;
+            T *new_dat = this->m_allocator.allocate(new_cap);
+            by_bit_copy(m_data, new_dat, m_size);
+            if(this->m_data != nullptr);
+                deAllocate(m_data, m_size, m_capacity, m_allocator);
+            this->m_data = new_dat;
+            this->m_capacity = new_cap;
+        }
+    }
+
+    //修改器
+    void clear() noexcept
+    {
+        deAllocate(m_data,m_size,0,m_allocator);
+        m_size = 0;
+    }
+
+    iterator insert(const_iterator pos, const T& value)
+    {
+        return insert(pos, 1, value);
+    }
+
+    iterator insert(const_iterator pos, const T&& value)
+    {
+
+        return insert(pos, 1, value); //应用移动语义
+  
+    }
+    //右值
+    
+    iterator insert(const_iterator pos, size_t count, const T& value)
+    {
+        return insert_aux(pos, count, value, std::true_type());
+    }
+
+    template<typename InputIt>
+    iterator insert(const_iterator pos, InputIt first, InputIt last)
+    {
+        typedef std::integral_constant<bool, std::is_integral<InputIt>::value> type;
+        return insert_aux(pos, first, last, type());
+    }
+
+    
+    //用初始化列表插入vector
+
+    iterator insert(const_iterator pos,std::initializer_list<T> i_list)
+    {
+        return insert_aux(pos, i_list.begin(), i_list.end(),std::false_type());
+    }
+   
+   //原位构造
+   template<typename ...Args>
+   iterator emplace(const_iterator pos, Args&&... args)
+   {
+       insert_aux(pos, 1, T(std::forward<Args>(args)...), std::true_type());
+   }
+   
+
+    iterator erase(const_iterator pos)
+    {
+        erase(pos, pos + 1);
+    }
+
+    iterator erase(const_iterator first, const_iterator last)
+    {
+        if(first < begin() || last > end() || first > last)
+            throw std::logic_error("Wrong Iterator!");
+        else
+        {
+            size_t del_count = last - first;
+            size_t move_start = last - begin();
+            size_t move_count = end() - last;
+            by_type_copy(m_data + move_start, m_data + move_start - del_count, move_count);
+            for(size_t index = 0; index < del_count; index++)
+            {
+                (m_data + (--m_size))->~T();
+            }
+            return iterator(first._ptr);
+        }
+        
+    }
+
+    void push_back(const T& value)
+    {
+        emplace_back(value);
+    }
+
+    
+    void push_back(T&& value) //移动语义?
+    {
+        emplace_back(value);
+    }
+    
+
+   
+    template<typename... Args>
+    void emplace_back(Args&&... args) //copy
+    {
+        if(m_size == m_capacity)
+            extend();
+        ::new(m_data + (m_size++)) T(std::forward<Args>(args)...);
+    }
+   
+
+    void pop_back()
+    {
+        if(m_size == 0)
+            throw std::logic_error("vector is empty");
+        else
+            (m_data + (--m_size))->~T();
+    }
+
+    void resize(size_t count)
+    {
+        resize(count, T());
+    }
+
+    void resize(size_t count, const T& value)
+    {
+        if(count == m_size)
+            return ;
+        else if(count > m_size)
+        {
+            reverse(count);
+            while(m_size < count)
+                ::new(m_data + (m_size++)) T(value);
+        }
+        else{
+            while(m_size > count)
+                (m_data + (--m_size))->~T(); 
+        }
+    }
+
+    void swap(myVector &other)//释放空间?
+    {
+        std::swap(this->m_data,other.m_data);
+        std::swap(this->m_capacity,other.m_capacity);
+        std::swap(this->m_size,other.m_size);
+    }
+
+    void swap(myVector &&other)
+    {
+        this->swap(other);      //应该用移动语义
+    }
+};
+
+template<typename T, typename Alloc>
+bool operator==(const myVector<T,Alloc> &lhs, const myVector<T,Alloc> &rhs) //全部整改为迭代器
+{
+    if(&lhs == &rhs)
+        return true;
+    else if(lhs.size() != rhs.size())
+        return false;
+    else
+    {
+        for(std::size_t index = 0; index < lhs.size(); index++)
+        {
+            if(*(lhs.data() + index) != *(rhs.data() + index))
+                return false;
+        }
+        return true;
+    }  
+}
+
+template<typename T, typename Alloc>
+bool operator!=(const myVector<T,Alloc> &lhs, const myVector<T,Alloc> &rhs)
+{
+   return !(lhs == rhs);
+}
+
+template<typename T, typename Alloc>
+bool operator<(const myVector<T,Alloc> &lhs, const myVector<T,Alloc> &rhs)
+{
+    if(&lhs == &rhs)
+        return false;
+    else
+    {
+        std::size_t size = lhs.size() < rhs.size() ? lhs.size() : rhs.size();
+        for(std::size_t index = 0; index < size; index++)
+        {
+            if(*(lhs.data() + index) < *(rhs.data() + index))
+                return true;
+            else if(*(lhs.data() + index) > *(rhs.data() + index))
+                return false;
+        }
+        if(size >= rhs.size())
+            return false;
+        else
+            return true;
+        }
+}
+
+template<typename T, typename Alloc>
+bool operator<=(const myVector<T,Alloc> &lhs, const myVector<T,Alloc> &rhs)
+{
+   return !(lhs > rhs);
+}
+
+template<typename T, typename Alloc>
+bool operator>(const myVector<T,Alloc> &lhs, const myVector<T,Alloc> &rhs)
+{
+    if(&lhs == &rhs)
+        return false;
+    else
+    {
+        std::size_t size = lhs.size() > rhs.size() ? lhs.size() : rhs.size();
+        for(std::size_t index = 0; index < size; index++)
+        {
+            if(*(lhs.data() + index) > *(rhs.data() + index))
+                return true;
+            else if(*(lhs.data() + index) < *(rhs.data() + index))
+                return false;
+        }
+        if(size <= rhs.size())
+            return false;
+        else
+            return true;
+    }
+}
+
+template<typename T, typename Alloc>
+bool operator>=(const myVector<T,Alloc> &lhs, const myVector<T,Alloc> &rhs)
+{
+   return !(lhs < rhs);
+}
+
+template<typename T, typename Alloc>
+void swap(myVector<T,Alloc> &lhs, myVector<T,Alloc> &rhs)
+{
+    lhs.swap(rhs);
+}
