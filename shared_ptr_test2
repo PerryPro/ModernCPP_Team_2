@@ -1,0 +1,155 @@
+#pragma once
+
+#include <stdexcept>
+#include <utility>
+
+
+template<typename T>
+class shared_ptr final{
+
+    private:
+
+    class store{
+
+        friend class shared_ptr<T>;
+
+        T *ptr = nullptr;
+
+        mutable unsigned long count;
+        
+    };    
+
+    // template<typename T, class... Args>
+    // friend shared_ptr<T> make_shared(Args&&... args);
+    // 写不来 
+
+    store *data = nullptr;
+
+    void del_count() const
+    {
+        if(data != nullptr)
+        {
+            if(--data->count == 0)
+            {
+                delete data->ptr;
+                delete data;
+            }
+        }
+    }
+
+    void add_count() const
+    {
+        data->count++;
+    }
+
+    public:
+
+    constexpr shared_ptr() noexcept = default;
+
+    explicit shared_ptr(T *Ptr): data(new store) // 不能隐式转换
+    {
+        data->ptr = Ptr;
+        data->count = 1;
+    }
+
+    shared_ptr(const shared_ptr &sh_ptr)
+    {
+        if(sh_ptr.data != nullptr)
+        {
+            data = sh_ptr.data;
+            this->add_count();
+        }        
+    }
+
+    ~shared_ptr()
+    {
+        this->del_count();
+    }
+
+    shared_ptr swap(shared_ptr &sh_ptr)
+    {
+       std::swap(this->data,sh_ptr.data);
+       return *this;
+    }
+
+    shared_ptr &operator=(const shared_ptr &sh_ptr)
+    {
+        if(this != &sh_ptr)
+        {
+            this->del_count();
+            if(sh_ptr.data == nullptr)
+                data = nullptr;
+            else
+            {
+                data = sh_ptr.data;
+                this->add_count();
+            }
+        }
+        return *this;
+    }
+    
+    void reset() noexcept
+    {
+        this->del_count();
+        shared_ptr().swap(*this);
+    }
+
+    // template<typename T>
+    // void reset(T* ptr)//
+    // {
+        
+    // }
+
+    T *get() const noexcept
+    {
+        return data->ptr;
+    }
+
+    T &operator*()
+    {
+        if(data == nullptr)
+            throw std::runtime_error("shared_ptr is nullptr");
+        else
+            return *data->ptr;
+    }
+
+    T *operator->()
+    {
+        if(data == nullptr)
+            throw std::runtime_error("shared_ptr is nullptr");
+        else
+            return data->ptr;
+    }
+
+    const T &operator*() const
+    {
+        if(data == nullptr)
+            throw std::runtime_error("shared_ptr is nullptr");
+        else
+            return *data->ptr;       
+
+    }
+
+    const T *operator->() const
+    {
+        if(data == nullptr)
+            throw std::runtime_error("shared_ptr is nullptr");
+        else
+            return data->ptr;    
+    }
+
+    long use_count() const noexcept
+    {
+        return data->count;
+    }
+
+    //bool unique() const noexcept 
+    //该函数在C++20中移除
+
+    explicit operator bool() const noexcept
+    {
+        return this->get() != nullptr;
+    }
+
+    
+};
